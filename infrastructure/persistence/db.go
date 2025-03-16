@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -19,7 +20,13 @@ var (
 // InitDB inicializa la conexión a MongoDB usando el patrón Singleton.
 func InitDB() error {
 	mongoOnce.Do(func() {
-		clientOptions := options.Client().ApplyURI("mongodb+srv://root:Elizabeth3004@cluster0.9rjse.mongodb.net/users")
+		uri := os.Getenv("MONGODB_URI")
+		if uri == "" {
+			log.Println("MONGODB_URI no está definida, usando URI por defecto")
+			uri = "mongodb+srv://root:Elizabeth3004@cluster0.9rjse.mongodb.net/users"
+		}
+
+		clientOptions := options.Client().ApplyURI(uri)
 		client, err := mongo.NewClient(clientOptions)
 		if err != nil {
 			clientInstanceErr = err

@@ -3,6 +3,7 @@ package delivery
 import (
 	"UbicaBus/UbicaBusBackend/application"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,6 +32,12 @@ func StartServer() {
 	// Nota: en este endpoint se establece la conexión WebSocket
 	router.GET("/ws", WebsocketHandler)
 
-	// Ejecuta el servidor en el puerto 8080
-	router.Run(":8080")
+	// Obtén el puerto de la variable de entorno PORT o usa 8080 por defecto
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	// Ejecuta el servidor en el puerto especificado
+	router.Run(":" + port)
 }
