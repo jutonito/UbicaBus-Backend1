@@ -27,6 +27,10 @@ func StartServer() {
 		c.JSON(http.StatusOK, gin.H{"mensaje": "Hola Mundo"})
 	})
 
+	// Endpoint para WebSockets
+	// Nota: en este endpoint se establece la conexión WebSocket
+	router.GET("/ws", WebsocketHandler)
+
 	// Ejecuta el servidor en el puerto 8080
 	router.Run(":8080")
 }
