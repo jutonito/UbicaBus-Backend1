@@ -14,6 +14,10 @@ RUN go mod download
 # Copia el resto del código fuente al contenedor
 COPY . .
 
+RUN go --version
+
+RUN pwd
+
 # Compila la aplicación; se asume que el punto de entrada está en cmd/main.go
 RUN go build -o main ./cmd/main.go
 
