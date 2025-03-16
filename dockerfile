@@ -14,8 +14,10 @@ RUN go mod download
 # Copia el resto del código fuente al contenedor
 COPY . .
 
-RUN go --version
+# Opcional: Verifica la versión de Go (para depuración)
+RUN go version
 
+# Muestra el directorio actual (para depuración)
 RUN pwd
 
 # Compila la aplicación; se asume que el punto de entrada está en cmd/main.go
