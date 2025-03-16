@@ -19,7 +19,7 @@ var (
 // InitDB inicializa la conexión a MongoDB usando el patrón Singleton.
 func InitDB() error {
 	mongoOnce.Do(func() {
-		clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+		clientOptions := options.Client().ApplyURI("mongodb+srv://root:Elizabeth3004@cluster0.9rjse.mongodb.net/users")
 		client, err := mongo.NewClient(clientOptions)
 		if err != nil {
 			clientInstanceErr = err

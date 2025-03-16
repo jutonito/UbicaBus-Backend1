@@ -1,22 +1,36 @@
 package application
 
-import "UbicaBus/UbicaBusBackend/domain"
+import (
+	"UbicaBus/UbicaBusBackend/domain"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 // UserService define la lógica de negocio relacionada a los usuarios.
 type UserService struct {
-	// Aquí se podrían inyectar repositorios o dependencias necesarias.
+	// Aquí se podría inyectar un repositorio para acceder a la colección 'users'
 }
 
-// NewUserService es el constructor del UserService.
+// NewUserService es el constructor de UserService.
 func NewUserService() *UserService {
 	return &UserService{}
 }
 
 // GetAllUsers simula la obtención de todos los usuarios.
+// En un caso real, aquí se consultaría la colección 'users' de MongoDB.
 func (s *UserService) GetAllUsers() []domain.User {
-	// En un caso real, aquí se interactuaría con la capa de persistencia.
 	return []domain.User{
-		{Id: "1", Name: "Juan"},
-		{Id: "2", Name: "Juan Nada"},
+		{
+			ID:       primitive.NewObjectID(),
+			Name:     "Ned Stark",
+			Email:    "sean_bean@gameofthron.es",
+			Password: "$2b$12$UREFwsRUoyF0CRqGNK0LzO0HM/jLhgUCNNIJ9RJAqMUQ74crlJ1Vu",
+		},
+		{
+			ID:       primitive.NewObjectID(),
+			Name:     "Ned Starksdasd",
+			Email:    "sean_bean@gameofthron.espn",
+			Password: "$2b$12$UREFwsRUoyF0CRqGNK0LzO0HM/jLhgUCNNIJ9RJAqMUQ74crlJ1Vu",
+		},
 	}
 }
