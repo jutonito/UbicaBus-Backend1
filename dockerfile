@@ -14,6 +14,8 @@ RUN go mod download
 # Copia el resto del código fuente al contenedor
 COPY . .
 
+RUN ls
+
 # Opcional: Verifica la versión de Go (para depuración)
 RUN go version
 
