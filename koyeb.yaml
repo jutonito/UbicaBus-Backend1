@@ -1,0 +1,22 @@
+version: "0.2"
+
+services:
+  mi-backend:
+    type: web
+    source:
+      type: git
+      url: "https://github.com/tu-usuario/mi-backend.git"
+      branch: main
+    build:
+      type: buildpacks
+      builder: "gcr.io/buildpacks/builder:v1"
+      # Opcionales:
+      # build_command: "go build -o main ./cmd/main.go"
+      # run_command: "./main"
+      # workdir: "/app"  # Solo si tu código no está en la raíz del repo
+      # privileged: false  # Por defecto, no se requieren privilegios elevados
+    env:
+      - name: PORT
+        value: "8080"
+    ports:
+      - port: 8080
