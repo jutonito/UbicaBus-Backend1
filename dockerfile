@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # Compila la aplicación; se asume que el punto de entrada está en cmd/main.go
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/main.go
+RUN go build -o main ./cmd/main.go
 
 # Etapa final: Imagen minimalista para correr la aplicación
 FROM alpine:latest
