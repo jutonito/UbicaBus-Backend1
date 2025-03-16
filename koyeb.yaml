@@ -1,22 +1,24 @@
 version: "0.2"
-
 services:
-  mi-backend:
+  ubicabus-backend:
     type: web
     source:
       type: git
-      url: "https://github.com/tu-usuario/mi-backend.git"
+      # Reemplaza esta URL con la de tu repositorio y la rama correspondiente
+      url: "https://github.com/miusarname2/UbicaBus-Backend"
       branch: main
     build:
       type: buildpacks
+      # Usamos el builder optimizado para Go
       builder: "gcr.io/buildpacks/builder:v1"
-      # Opcionales:
-      # build_command: "go build -o main ./cmd/main.go"
-      # run_command: "./main"
-      # workdir: "/app"  # Solo si tu código no está en la raíz del repo
-      # privileged: false  # Por defecto, no se requieren privilegios elevados
+    resources:
+      cpu: 0.1       # 0.1 vCPU
+      memory: 512MB  # 512 MB de RAM
+      disk: 512MB    # 512 MB de disco
     env:
       - name: PORT
         value: "8080"
+      - name: GOMEMLIMIT
+        value: "500MB"
     ports:
       - port: 8080
