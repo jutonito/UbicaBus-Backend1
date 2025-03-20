@@ -2,38 +2,33 @@ package delivery
 
 import (
 	"log"
-	"time"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	mqtt "github.com/mochi-mqtt/server/v2"
+	"github.com/mochi-mqtt/server/v2/listeners"
 )
 
 // StartMQTT inicia el cliente MQTT, se conecta al broker y se suscribe a un tópico.
 func StartMQTT() {
-	opts := mqtt.NewClientOptions()
-	opts.AddBroker("tcp://localhost:1883") // Ajusta la URL del broker si es necesario.
-	opts.SetClientID("mi-backend-mqtt-client")
-	opts.SetDefaultPublishHandler(func(client mqtt.Client, msg mqtt.Message) {
-		log.Printf("Mensaje recibido en el tópico '%s': %s", msg.Topic(), msg.Payload())
+	// Crea un nuevo servidor MQTT.
+	server := mqtt.New(nil)
+
+	// Agrega un listener TCP en el puerto 1883.
+	tcp := listeners.NewTCP(listeners.Config{
+		ID:      "tcp1",
+		Address: ":1883",
 	})
-	opts.OnConnect = func(client mqtt.Client) {
-		log.Println("Conectado al broker MQTT")
-		// Suscribirse al tópico "mi/topico"
-		if token := client.Subscribe("mi/topico", 1, nil); token.Wait() && token.Error() != nil {
-			log.Fatalf("Error en la suscripción al tópico MQTT: %v", token.Error())
-		} else {
-			log.Println("Suscrito al tópico: mi/topico")
+	if err := server.AddListener(tcp); err != nil {
+		log.Fatalf("Error al agregar listener: %v", err)
+	}
+
+	// Inicia el servidor en una goroutine.
+	go func() {
+		if err := server.Serve(); err != nil {
+			log.Fatalf("Error al servir: %v", err)
 		}
-	}
+	}()
 
-	client := mqtt.NewClient(opts)
-	token := client.Connect()
-	token.Wait()
-	if token.Error() != nil {
-		log.Fatalf("Error al conectar al broker MQTT: %v", token.Error())
-	}
-
-	// Mantiene la conexión viva
-	for {
-		time.Sleep(1 * time.Second)
-	}
+	log.Println("Broker MQTT corriendo en el puerto 1883...")
+	// Mantiene el programa en ejecución.
+	select {}
 }

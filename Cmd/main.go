@@ -15,7 +15,7 @@ func main() {
 		log.Fatalf("Error al conectar a la base de datos: %v", err)
 	}
 
-	//go delivery.StartMQTT()
+	go delivery.StartMQTT()
 
 	delivery.StartServer()
 
