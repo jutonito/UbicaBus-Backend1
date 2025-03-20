@@ -22,3 +22,4 @@ services:
         value: "500MB"
     ports:
       - port: 8080
+      - port: 1883
