@@ -1,5 +1,233 @@
-# Documentación del Servidor "UbicaBus"
 
+
+# Documentación del Servidor "UbicaBus" | UbicaBus Server Documentation
+
+> [!NOTE]
+> There are two versions, one in English and one in Spanish, this is the English version, below is the Spanish version.
+
+## Index
+
+1. [Introduction](#introduction)
+2. [Project Structure](#project-structure)
+3. [Requirements and Dependencies](#requirements-and-dependencies)
+4. [Installation and Configuration](#installation-and-configuration)
+5. [Running the Server](#running-the-server)
+6. [Endpoints and Features](#endpoints-and-features)
+   - [HTTP with Gin](#http-with-gin)
+   - [WebSockets Server](#websockets-server)
+   - [MQTT Client](#mqtt-client)
+7. [Architecture and Design](#architecture-and-design)
+8. [Commit Formatting](#commit-formatting)
+9. [Final Considerations](#final-considerations)
+10. [References](#references)
+
+---
+
+## Introduction
+
+The **UbicaBus** project is an example of a server developed in Go that follows a clean and modular architecture. Three key technologies have been integrated for communication:
+
+- **HTTP**: Using the Gin framework to expose REST endpoints.
+- **WebSockets**: Employing the Gorilla WebSocket library to create a WebSockets server.
+- **MQTT**: Integrating Eclipse Paho to manage messages via MQTT.
+
+This approach enables the construction of a scalable backend that is easy to maintain and adaptable to multiple communication channels.
+
+---
+
+## Project Structure
+
+The code organisation is divided into layers, following a separation of concerns pattern:
+
+```
+/UbicaBus
+ ├── cmd
+ │    └── main.go                // Application entry point
+ ├── domain
+ │    └── user.go                // Example entity (domain model)
+ ├── application
+ │    └── user_service.go        // Business logic (application services)
+ ├── infrastructure
+ │    ├── delivery
+ │    │    ├── http_handler.go   // HTTP endpoints with Gin
+ │    │    ├── mqtt_handler.go   // MQTT client configuration and handling
+ │    │    └── websocket_handler.go  // WebSockets server
+ │    └── persistence
+ │         └── db.go             // Database connection (MongoDB, Singleton pattern)
+ └── go.mod                     // Project dependency management
+```
+
+Each layer has a specific purpose:
+
+- **cmd:** Main file that initialises the application.
+- **domain:** Definition of entities and business models.
+- **application:** Contains business logic.
+- **infrastructure:** Implements technical details such as delivery (HTTP, WebSockets, MQTT) and persistence (MongoDB).
+
+---
+
+## Requirements and Dependencies
+
+Before running the server, ensure you have:
+
+- **Go** (version 1.20 or later).
+- **MongoDB** (running locally or accessible via URI).
+- **MQTT Broker** (running locally on `tcp://localhost:1883` or adjust the configuration).
+
+Dependencies installed via `go get`:
+
+- Gin: `github.com/gin-gonic/gin`
+- MongoDB Driver: `go.mongodb.org/mongo-driver/mongo`
+- Eclipse Paho MQTT: `github.com/eclipse/paho.mqtt.golang`
+- Gorilla WebSocket: `github.com/gorilla/websocket`
+
+---
+
+## Installation and Configuration
+
+1. **Initialise the Go module (if not already done):**
+
+   ```bash
+   go mod init UbicaBus
+   ```
+
+2. **Download the required dependencies:**
+
+   ```bash
+   go get github.com/gin-gonic/gin
+   go get go.mongodb.org/mongo-driver/mongo
+   go get github.com/eclipse/paho.mqtt.golang
+   go get github.com/gorilla/websocket
+   ```
+
+3. **Configure the MongoDB connection:**  
+   In `infrastructure/persistence/db.go`, the connection to MongoDB is established using the Singleton pattern. Ensure that the URI `"mongodb://localhost:27017"` matches your setup.
+
+4. **Configure the MQTT Broker:**  
+   In `infrastructure/delivery/mqtt_handler.go`, the connection and subscription to the MQTT broker are configured. Ensure the broker is running and that the URL (`tcp://localhost:1883`) is correct.
+
+---
+
+## Running the Server
+
+To start the server, run the following command from the project root:
+
+```bash
+go run cmd/main.go
+```
+
+The server will start:
+- The **HTTP Server** on port `8080`.
+- The **MQTT Client** in a goroutine, maintaining the broker connection.
+- The **WebSockets Server** integrated into the HTTP endpoint.
+
+---
+
+## Endpoints and Features
+
+### HTTP with Gin
+
+The server exposes the following endpoints:
+
+- **GET /hello**  
+  Responds with a JSON message: `"Hello World"`.
+
+- **GET /users**  
+  Returns a simulated list of users using the service defined in `application/user_service.go`.
+
+### WebSockets Server
+
+- **GET /ws**  
+  Establishes a WebSocket connection using Gorilla WebSocket.  
+  - **Functionality:**  
+    Once the connection is established, the server acts as an "echo server," returning any received messages.
+
+### MQTT Client
+
+The MQTT service runs in parallel with the HTTP server:
+- Connects to the configured broker (`tcp://localhost:1883`).
+- Subscribes to the topic `"my/topic"`.
+- Messages received on that topic are logged to the server console.
+
+---
+
+## Architecture and Design
+
+The project follows the principles of **clean architecture** and **hexagonal architecture**:
+
+- **Separation of Concerns:**  
+  Each layer (domain, application, infrastructure) is isolated, allowing modifications or extensions without affecting core business logic.
+
+- **Singleton Pattern for Database:**  
+  Used in `infrastructure/persistence/db.go` to ensure a single MongoDB connection instance.
+
+- **Integration of Multiple Protocols:**  
+  The server combines HTTP, WebSockets, and MQTT, facilitating communication across different channels.
+
+---
+
+## Commit Formatting
+
+To maintain a clear and consistent change history, it is recommended to follow the **Conventional Commits** format. This format facilitates automatic generation of logs, changelogs, and semantic versioning. Some commit format examples:
+
+- **feat:** For new features.  
+  Example:  
+  ```
+  feat: add endpoint to retrieve users
+  ```
+- **fix:** For bug fixes.  
+  Example:  
+  ```
+  fix: correct MongoDB connection error
+  ```
+- **docs:** For documentation updates.  
+  Example:  
+  ```
+  docs: update endpoint documentation
+  ```
+- **chore:** For maintenance tasks, configurations, or dependency updates.  
+  Example:  
+  ```
+  chore: update Gin version
+  ```
+
+**Visual Studio Code Recommendation:**  
+To facilitate this format, install the **Conventional Commits** extension in Visual Studio Code. This extension helps:
+- Generate commit messages following the standard.
+- Validate that commits meet the proposed format.
+- Improve commit consistency and quality within the development team.
+
+You can install the extension by searching for "Conventional Commits" in the Visual Studio Code Marketplace or visiting: [Conventional Commits VSCode Extension](https://marketplace.visualstudio.com/items?itemName=vivaxy.vscode-conventional-commits).
+
+---
+
+## Final Considerations
+
+- **Scalability and Maintainability:**  
+  The modularity of the project facilitates adding new endpoints, services, or integrating other protocols.
+
+- **Testing and Development:**  
+  The separation of responsibilities allows unit testing in each layer and facilitates team collaboration.
+
+- **Production Configuration:**  
+  Before deployment, review configurations (MongoDB URI, MQTT broker address, CORS handling in WebSockets, etc.) to ensure secure and efficient operation.
+
+---
+
+## References
+
+- [Refactoring Guru – Clean Architecture and Design Patterns](https://refactoring.guru/)
+- [Patterns.dev - Design Patterns Resources and Examples](https://www.patterns.dev/) citeturn0search0
+- [Gin Web Framework](https://github.com/gin-gonic/gin) citeturn0search0
+- [Gorilla WebSocket](https://github.com/gorilla/websocket) citeturn0search0
+- [Eclipse Paho MQTT Client](https://github.com/eclipse/paho.mqtt.golang) citeturn0search0
+- [Conventional Commits Extension for VSCode](https://marketplace.visualstudio.com/items?itemName=vivaxy.vscode-conventional-commits) citeturn0search0
+
+
+---
+
+> [!Español]
+> Esta es la version en español.
 ## Índice
 
 1. [Introducción](#introducción)
