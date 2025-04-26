@@ -14,6 +14,13 @@ type UserHandler struct {
 	UserService *application.UserService
 }
 
+type EditUserReq struct {
+	Nombre     string `json:"nombre"`
+	Password   string `json:"password"`
+	RolID      string `json:"rol_id"`
+	CompaniaID string `json:"compania_id"`
+}
+
 // NewUserHandler crea un nuevo manejador de usuarios
 func NewUserHandler(userService *application.UserService) *UserHandler {
 	return &UserHandler{UserService: userService}
@@ -45,6 +52,28 @@ func (h *UserHandler) RegisterUserHandler(c *gin.Context) {
 	})
 }
 
+func (h *UserHandler) EditUser(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de usuario requerido"})
+		return
+	}
+
+	var request EditUserReq
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos de entrada inválidos"})
+		return
+	}
+
+	updated, err := h.UserService.EditUser(id, request.Nombre, request.Password, request.RolID, request.CompaniaID)
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Error al editar usuario: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, updated)
+}
+
 // StartServer inicia el servidor HTTP y registra rutas con Gin
 func StartServer(userService *application.UserService) {
 	r := gin.Default()
@@ -54,6 +83,7 @@ func StartServer(userService *application.UserService) {
 
 	// Registrar rutas
 	r.POST("/register", userHandler.RegisterUserHandler)
+	r.PUT("/user/:id", userHandler.EditUser)
 
 	// Iniciar servidor con Gin
 	fmt.Println("Iniciando servidor en el puerto 8080...")

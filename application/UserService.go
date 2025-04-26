@@ -56,3 +56,46 @@ func (s *UserService) RegisterUser(nombre, password, rolID, companiaID string) (
 
 	return user.ID, nil
 }
+
+func (s *UserService) EditUser(userID, nombre, password, rolID, companiaID string) (*domain.User, error) {
+
+	if userID == "" {
+		return nil, errors.New("ID de usuario es obligatorio")
+	}
+
+	userObjID, err := primitive.ObjectIDFromHex(userID)
+
+	if err != nil {
+		return nil, errors.New("ID de usuario inválido")
+	}
+
+	u := &domain.User{ID: userObjID}
+
+	if nombre != "" {
+		u.Nombre = nombre
+	}
+	if password != "" {
+		u.Password = domain.HashPassword(password)
+	}
+	if rolID != "" {
+		rolObjID, err := primitive.ObjectIDFromHex(rolID)
+		if err != nil {
+			return nil, errors.New("ID de rol inválido")
+		}
+		u.RolID = rolObjID
+	}
+	if companiaID != "" {
+		companiaObjID, err := primitive.ObjectIDFromHex(companiaID)
+		if err != nil {
+			return nil, errors.New("ID de compañía inválido")
+		}
+		u.Compania = companiaObjID
+	}
+
+	updateUser, err := domain.EditarUsuario(context.TODO(), s.DB, u)
+	if err != nil {
+		return nil, err
+	}
+
+	return updateUser, nil
+}
