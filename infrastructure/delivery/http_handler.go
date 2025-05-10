@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"UbicaBus/UbicaBusBackend/application"
+	"UbicaBus/UbicaBusBackend/domain"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,6 +20,26 @@ type EditUserReq struct {
 	Password   string `json:"password"`
 	RolID      string `json:"rol_id"`
 	CompaniaID string `json:"compania_id"`
+}
+
+type RouteHandler struct {
+	RouteService *application.RouteService
+}
+
+type CreateRouteReq struct {
+	Nombre         string            `json:"nombre" binding:"required"`
+	Descripcion    string            `json:"descripcion"`
+	ModoTransporte string            `json:"modo_transporte" binding:"required"`
+	OrigenLat      float64           `json:"origen_lat" binding:"required"`
+	OrigenLng      float64           `json:"origen_lng" binding:"required"`
+	DestinoLat     float64           `json:"destino_lat" binding:"required"`
+	DestinoLng     float64           `json:"destino_lng" binding:"required"`
+	Waypoints      []domain.Waypoint `json:"waypoints"`
+}
+
+// NewRouteHandler crea un nuevo manejador de rutas.
+func NewRouteHandler(routeService *application.RouteService) *RouteHandler {
+	return &RouteHandler{RouteService: routeService}
 }
 
 // NewUserHandler crea un nuevo manejador de usuarios
@@ -74,16 +95,112 @@ func (h *UserHandler) EditUser(c *gin.Context) {
 	c.JSON(http.StatusOK, updated)
 }
 
+func (h *RouteHandler) GetAllRoutesHandler(c *gin.Context) {
+	routes, err := h.RouteService.GetAllRoutes()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, routes)
+}
+
+func (h *RouteHandler) GetRoutesByNameHandler(c *gin.Context) {
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'name' is required"})
+		return
+	}
+
+	routes, err := h.RouteService.GetRoutesByName(name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if len(routes) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"message": fmt.Sprintf("no routes found with name '%s'", name)})
+		return
+	}
+	c.JSON(http.StatusOK, routes)
+}
+
+func (h *RouteHandler) RegisterRouteHandler(c *gin.Context) {
+	var req CreateRouteReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	id, err := h.RouteService.RegisterRoute(
+		req.Nombre,
+		req.Descripcion,
+		req.ModoTransporte,
+		req.OrigenLat,
+		req.OrigenLng,
+		req.DestinoLat,
+		req.DestinoLng,
+		req.Waypoints,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":  "Ruta creada correctamente",
+		"route_id": id.Hex(),
+	})
+}
+
+func (h *RouteHandler) EditRouteHandler(c *gin.Context) {
+	routeID := c.Param("id")
+	if routeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de ruta requerido"})
+		return
+	}
+
+	var req CreateRouteReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Optional: si quieres permitir no enviar campos obligatorios para ediciones parciales,
+	// quita el binding:"required" de CreateRouteReq y sólo valídalos en el service.
+
+	updated, err := h.RouteService.EditRoute(
+		routeID,
+		req.Nombre,
+		req.Descripcion,
+		req.ModoTransporte,
+		&domain.Location{Lat: req.OrigenLat, Lng: req.OrigenLng},
+		&domain.Location{Lat: req.DestinoLat, Lng: req.DestinoLng},
+		req.Waypoints,
+	)
+	if err != nil {
+		status := http.StatusInternalServerError
+		// podrías distinguir ErrNotFound para 404, etc.
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, updated)
+}
+
 // StartServer inicia el servidor HTTP y registra rutas con Gin
-func StartServer(userService *application.UserService) {
+func StartServer(userService *application.UserService, routeService *application.RouteService) {
 	r := gin.Default()
 
 	// Crear el manejador de usuarios
 	userHandler := NewUserHandler(userService)
+	routeHandler := NewRouteHandler(routeService)
 
 	// Registrar rutas
 	r.POST("/register", userHandler.RegisterUserHandler)
 	r.PUT("/user/:id", userHandler.EditUser)
+	r.GET("/routes", routeHandler.GetAllRoutesHandler) // devuelve todas las rutas
+	r.GET("/routes/search", routeHandler.GetRoutesByNameHandler)
+	r.POST("/routes", routeHandler.RegisterRouteHandler) // Crear ruta
+	r.PUT("/routes/:id", routeHandler.EditRouteHandler)
 
 	// Iniciar servidor con Gin
 	fmt.Println("Iniciando servidor en el puerto 8080...")

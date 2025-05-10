@@ -125,3 +125,34 @@ func GetAllRoutes(ctx context.Context, db *mongo.Database) ([]Route, error) {
 
 	return routes, nil
 }
+
+func GetRoutesByName(ctx context.Context, db *mongo.Database, nombre string) ([]Route, error) {
+	collection := db.Collection("ruta")
+
+	// Filtramos por nombre exacto; si quieres búsqueda parcial o case-insensitive,
+	// podrías usar un regex en lugar de igualdad.
+	filter := bson.M{"nombre": nombre}
+
+	cursor, err := collection.Find(ctx, filter)
+	if err != nil {
+		log.Println("Error al buscar rutas por nombre:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var routes []Route
+	for cursor.Next(ctx) {
+		var r Route
+		if err := cursor.Decode(&r); err != nil {
+			log.Println("Error al decodificar ruta:", err)
+			continue
+		}
+		routes = append(routes, r)
+	}
+	if err := cursor.Err(); err != nil {
+		log.Println("Cursor error al buscar rutas:", err)
+		return nil, err
+	}
+
+	return routes, nil
+}

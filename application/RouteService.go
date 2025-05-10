@@ -107,3 +107,11 @@ func (s *RouteService) EditRoute(
 
 	return updated, nil
 }
+
+func (s *RouteService) GetRoutesByName(nombre string) ([]domain.Route, error) {
+	if nombre == "" {
+		return nil, errors.New("el nombre de la ruta es obligatorio")
+	}
+
+	return domain.GetRoutesByName(context.TODO(), s.DB, nombre)
+}
