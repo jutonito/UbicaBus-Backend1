@@ -28,6 +28,8 @@ func main() {
 
 	companyService := application.NewCompanyService(db)
 
+	roleService := application.NewRoleService(db)
+
 	// Iniciar servidor con los servicios de usuario y rutas
-	delivery.StartServer(userService, routeService, companyService)
+	delivery.StartServer(userService, routeService, companyService, roleService)
 }

@@ -68,3 +68,76 @@ func EditarRole(ctx context.Context, db *mongo.Database, role *Role) (*Role, err
 
 	return &updated, nil
 }
+
+// GetAllRoles retorna todos los roles de la colección "roles".
+func GetAllRoles(ctx context.Context, db *mongo.Database) ([]Role, error) {
+	coll := db.Collection("roles")
+	cursor, err := coll.Find(ctx, bson.M{})
+	if err != nil {
+		log.Println("Error al obtener roles:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var out []Role
+	for cursor.Next(ctx) {
+		var r Role
+		if err := cursor.Decode(&r); err != nil {
+			log.Println("Error al decodificar rol:", err)
+			continue
+		}
+		out = append(out, r)
+	}
+	if err := cursor.Err(); err != nil {
+		log.Println("Cursor error en roles:", err)
+		return nil, err
+	}
+	return out, nil
+}
+
+// GetRoleByID busca un rol por su ObjectID.
+func GetRoleByID(ctx context.Context, db *mongo.Database, id primitive.ObjectID) (*Role, error) {
+	coll := db.Collection("roles")
+	var r Role
+	if err := coll.FindOne(ctx, bson.M{"_id": id}).Decode(&r); err != nil {
+		log.Println("Rol no encontrado:", err)
+		return nil, err
+	}
+	return &r, nil
+}
+
+// GetRolesByName retorna todos los roles cuyo nombre coincide exactamente.
+func GetRolesByName(ctx context.Context, db *mongo.Database, nombre string) ([]Role, error) {
+	coll := db.Collection("roles")
+	cursor, err := coll.Find(ctx, bson.M{"nombre": nombre})
+	if err != nil {
+		log.Println("Error al buscar roles por nombre:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var out []Role
+	for cursor.Next(ctx) {
+		var r Role
+		if err := cursor.Decode(&r); err != nil {
+			log.Println("Error al decodificar rol:", err)
+			continue
+		}
+		out = append(out, r)
+	}
+	if err := cursor.Err(); err != nil {
+		log.Println("Cursor error en búsqueda de roles:", err)
+		return nil, err
+	}
+	return out, nil
+}
+
+// DeleteRole elimina un rol por su ObjectID.
+func DeleteRole(ctx context.Context, db *mongo.Database, id primitive.ObjectID) error {
+	coll := db.Collection("roles")
+	if _, err := coll.DeleteOne(ctx, bson.M{"_id": id}); err != nil {
+		log.Println("Error al eliminar rol:", err)
+		return err
+	}
+	return nil
+}

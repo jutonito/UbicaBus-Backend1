@@ -10,6 +10,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type RoleHandler struct {
+	RoleService *application.RoleService
+}
+
+type CreateRoleReq struct {
+	Nombre      string `json:"nombre" binding:"required"`
+	Descripcion string `json:"descripcion"`
+}
+
+func NewRoleHandler(rs *application.RoleService) *RoleHandler {
+	return &RoleHandler{RoleService: rs}
+}
+
 type CompanyHandler struct {
 	CompanyService *application.CompanyService
 }
@@ -278,14 +291,94 @@ func (h *CompanyHandler) DeleteCompanyHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Compañía %s eliminada", idHex)})
 }
 
+func (h *RoleHandler) GetAllRolesHandler(c *gin.Context) {
+	roles, err := h.RoleService.GetAllRoles()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, roles)
+}
+
+// GetRoleByIDHandler retorna un rol por su ID.
+func (h *RoleHandler) GetRoleByIDHandler(c *gin.Context) {
+	idHex := c.Param("id")
+	role, err := h.RoleService.GetRoleByID(idHex)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, role)
+}
+
+// SearchRolesByNameHandler busca roles por nombre exacto (?name=...).
+func (h *RoleHandler) SearchRolesByNameHandler(c *gin.Context) {
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'name' is required"})
+		return
+	}
+	roles, err := h.RoleService.SearchRolesByName(name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, roles)
+}
+
+// RegisterRoleHandler crea un nuevo rol.
+func (h *RoleHandler) RegisterRoleHandler(c *gin.Context) {
+	var req CreateRoleReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	id, err := h.RoleService.RegisterRole(req.Nombre, req.Descripcion)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Rol creado correctamente",
+		"role_id": id.Hex(),
+	})
+}
+
+// EditRoleHandler actualiza un rol existente.
+func (h *RoleHandler) EditRoleHandler(c *gin.Context) {
+	idHex := c.Param("id")
+	var req CreateRoleReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	updated, err := h.RoleService.EditRole(idHex, req.Nombre, req.Descripcion)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, updated)
+}
+
+// DeleteRoleHandler elimina un rol por su ID.
+func (h *RoleHandler) DeleteRoleHandler(c *gin.Context) {
+	idHex := c.Param("id")
+	if err := h.RoleService.DeleteRole(idHex); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Rol %s eliminado", idHex)})
+}
+
 // StartServer inicia el servidor HTTP y registra rutas con Gin
-func StartServer(userService *application.UserService, routeService *application.RouteService, companyService *application.CompanyService) {
+func StartServer(userService *application.UserService, routeService *application.RouteService, companyService *application.CompanyService, roleService *application.RoleService) {
 	r := gin.Default()
 
 	// Crear el manejador de usuarios
 	userHandler := NewUserHandler(userService)
 	routeHandler := NewRouteHandler(routeService)
 	companyHandler := NewCompanyHandler(companyService)
+	roleHandler := NewRoleHandler(roleService)
 
 	// Registrar rutas
 	r.POST("/register", userHandler.RegisterUserHandler)
@@ -300,6 +393,12 @@ func StartServer(userService *application.UserService, routeService *application
 	r.POST("/companies", companyHandler.RegisterCompanyHandler)
 	r.PUT("/companies/:id", companyHandler.EditCompanyHandler)
 	r.DELETE("/companies/:id", companyHandler.DeleteCompanyHandler)
+	r.GET("/roles", roleHandler.GetAllRolesHandler)
+	r.GET("/roles/search", roleHandler.SearchRolesByNameHandler)
+	r.GET("/roles/:id", roleHandler.GetRoleByIDHandler)
+	r.POST("/roles", roleHandler.RegisterRoleHandler)
+	r.PUT("/roles/:id", roleHandler.EditRoleHandler)
+	r.DELETE("/roles/:id", roleHandler.DeleteRoleHandler)
 
 	// Iniciar servidor con Gin
 	fmt.Println("Iniciando servidor en el puerto 8080...")
