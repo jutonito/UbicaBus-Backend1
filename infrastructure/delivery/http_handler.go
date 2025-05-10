@@ -10,6 +10,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type CompanyHandler struct {
+	CompanyService *application.CompanyService
+}
+
+type CreateCompanyReq struct {
+	Nombre      string `json:"nombre" binding:"required"`
+	Descripcion string `json:"descripcion"`
+}
+
+func NewCompanyHandler(cs *application.CompanyService) *CompanyHandler {
+	return &CompanyHandler{CompanyService: cs}
+}
+
 // UserHandler maneja las peticiones relacionadas con usuarios
 type UserHandler struct {
 	UserService *application.UserService
@@ -186,13 +199,93 @@ func (h *RouteHandler) EditRouteHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, updated)
 }
 
+func (h *CompanyHandler) GetAllCompaniesHandler(c *gin.Context) {
+	companies, err := h.CompanyService.GetAllCompanies()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, companies)
+}
+
+// GetCompanyByIDHandler retorna una compañía por su ID.
+func (h *CompanyHandler) GetCompanyByIDHandler(c *gin.Context) {
+	idHex := c.Param("id")
+	comp, err := h.CompanyService.GetCompanyByID(idHex)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, comp)
+}
+
+// SearchCompaniesByNameHandler busca compañías por nombre exacto (?name=...).
+func (h *CompanyHandler) SearchCompaniesByNameHandler(c *gin.Context) {
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'name' is required"})
+		return
+	}
+	companies, err := h.CompanyService.SearchCompaniesByName(name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, companies)
+}
+
+// RegisterCompanyHandler crea una nueva compañía.
+func (h *CompanyHandler) RegisterCompanyHandler(c *gin.Context) {
+	var req CreateCompanyReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	id, err := h.CompanyService.RegisterCompany(req.Nombre, req.Descripcion)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"message":    "Compañía creada correctamente",
+		"company_id": id.Hex(),
+	})
+}
+
+// EditCompanyHandler actualiza una compañía existente.
+func (h *CompanyHandler) EditCompanyHandler(c *gin.Context) {
+	idHex := c.Param("id")
+	var req CreateCompanyReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	updated, err := h.CompanyService.EditCompany(idHex, req.Nombre, req.Descripcion)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, updated)
+}
+
+// DeleteCompanyHandler elimina una compañía por su ID.
+func (h *CompanyHandler) DeleteCompanyHandler(c *gin.Context) {
+	idHex := c.Param("id")
+	if err := h.CompanyService.DeleteCompany(idHex); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Compañía %s eliminada", idHex)})
+}
+
 // StartServer inicia el servidor HTTP y registra rutas con Gin
-func StartServer(userService *application.UserService, routeService *application.RouteService) {
+func StartServer(userService *application.UserService, routeService *application.RouteService, companyService *application.CompanyService) {
 	r := gin.Default()
 
 	// Crear el manejador de usuarios
 	userHandler := NewUserHandler(userService)
 	routeHandler := NewRouteHandler(routeService)
+	companyHandler := NewCompanyHandler(companyService)
 
 	// Registrar rutas
 	r.POST("/register", userHandler.RegisterUserHandler)
@@ -201,6 +294,12 @@ func StartServer(userService *application.UserService, routeService *application
 	r.GET("/routes/search", routeHandler.GetRoutesByNameHandler)
 	r.POST("/routes", routeHandler.RegisterRouteHandler) // Crear ruta
 	r.PUT("/routes/:id", routeHandler.EditRouteHandler)
+	r.GET("/companies", companyHandler.GetAllCompaniesHandler)
+	r.GET("/companies/search", companyHandler.SearchCompaniesByNameHandler) // ?name=...
+	r.GET("/companies/:id", companyHandler.GetCompanyByIDHandler)
+	r.POST("/companies", companyHandler.RegisterCompanyHandler)
+	r.PUT("/companies/:id", companyHandler.EditCompanyHandler)
+	r.DELETE("/companies/:id", companyHandler.DeleteCompanyHandler)
 
 	// Iniciar servidor con Gin
 	fmt.Println("Iniciando servidor en el puerto 8080...")
