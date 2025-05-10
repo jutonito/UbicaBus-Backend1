@@ -70,4 +70,32 @@ func EditarRoute(ctx context.Context, db *mongo.Database, r *Route) (*Route, err
 		updateFields["destino"] = r.Destino
 	}
 	if len(r.Waypoints) > 0 {
-		updateFields
+		updateFields["waypoints"] = r.Waypoints
+	}
+
+	// Si no hay campos para actualizar, devolvemos el documento tal cual está
+	if len(updateFields) == 0 {
+		var existing Route
+		if err := collection.FindOne(ctx, bson.M{"_id": r.ID}).Decode(&existing); err != nil {
+			log.Println("Ruta no encontrada:", err)
+			return nil, err
+		}
+		return &existing, nil
+	}
+
+	filter := bson.M{"_id": r.ID}
+	update := bson.M{"$set": updateFields}
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
+
+	var updated Route
+	if err := collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&updated); err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Println("Ruta no encontrada")
+		} else {
+			log.Println("Error al editar ruta:", err)
+		}
+		return nil, err
+	}
+
+	return &updated, nil
+}
