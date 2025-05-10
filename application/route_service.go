@@ -1,38 +1,109 @@
 package application
 
 import (
+	"context"
+	"errors"
+
 	"UbicaBus/UbicaBusBackend/domain"
-	"UbicaBus/UbicaBusBackend/infrastructure/persistence" // Import para crear el repo (si es necesario aquí)
-	"go.mongodb.org/mongo-driver/mongo"             // Import para crear el repo (si es necesario aquí)
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// Definición de la estructura RouteService
+// RouteService maneja la lógica de negocio relacionada con las rutas.
+// Ahora trabaja directamente con las funciones de dominio para crear y editar rutas.
 type RouteService struct {
-	repo domain.RouteRepository
+	DB *mongo.Database
 }
 
-// Constructor para RouteService que recibe la interfaz RouteRepository
-func NewRouteService(repo domain.RouteRepository) *RouteService {
-	return &RouteService{repo: repo}
+// NewRouteService crea una nueva instancia de RouteService
+func NewRouteService(db *mongo.Database) *RouteService {
+	return &RouteService{DB: db}
 }
 
-// Otra forma del constructor si la capa de aplicación necesita crear el repositorio
-// En este caso, aún dependemos de la implementación concreta aquí.
-// Una mejor práctica sería inyectar la dependencia del repositorio desde una capa superior.
-// func NewRouteService(db *mongo.Database) *RouteService {
-// 	repo := persistence.NewRouteRepository(db)
-// 	return &RouteService{repo: repo}
-// }
-
+// GetAllRoutes obtiene todas las rutas de la base de datos.
 func (s *RouteService) GetAllRoutes() ([]domain.Route, error) {
-	return s.repo.GetAllRoutes() // Corregido el nombre del método para que coincida
+	// Asumimos que existe un método en dominio para listar rutas.
+	// Si no, se podría implementar usando s.DB.Collection("ruta").Find(...)
+	return domain.GetAllRoutes(context.TODO(), s.DB)
 }
 
-// Aquí puedes agregar otros métodos para la lógica de negocio relacionada con las rutas
-// Por ejemplo:
-// func (s *RouteService) GetRouteByID(id string) (*domain.Route, error) {
-// 	// ... lógica para obtener una ruta por ID
-// }
-// func (s *RouteService) CreateRoute(route *domain.Route) error {
-// 	// ... lógica para crear una nueva ruta
-// }
+// RegisterRoute crea una nueva ruta con los datos proporcionados.
+func (s *RouteService) RegisterRoute(
+	nombre, descripcion, modoTransporte string,
+	origenLat, origenLng, destinoLat, destinoLng float64,
+	waypoints []domain.Waypoint,
+) (primitive.ObjectID, error) {
+	// Validaciones básicas
+	if nombre == "" || modoTransporte == "" {
+		return primitive.NilObjectID, errors.New("nombre y modo de transporte son obligatorios")
+	}
+
+	// Construir la entidad de dominio
+	route := domain.Route{
+		Nombre:         nombre,
+		Descripcion:    descripcion,
+		ModoTransporte: modoTransporte,
+		Origen: domain.Location{
+			Lat: origenLat,
+			Lng: origenLng,
+		},
+		Destino: domain.Location{
+			Lat: destinoLat,
+			Lng: destinoLng,
+		},
+		Waypoints: waypoints,
+	}
+
+	// Insertar en la base de datos
+	if err := domain.CrearRoute(context.TODO(), s.DB, &route); err != nil {
+		return primitive.NilObjectID, err
+	}
+
+	return route.ID, nil
+}
+
+// EditRoute actualiza una ruta existente con los campos proporcionados.
+func (s *RouteService) EditRoute(
+	idHex, nombre, descripcion, modoTransporte string,
+	origen *domain.Location, destino *domain.Location,
+	waypoints []domain.Waypoint,
+) (*domain.Route, error) {
+	// Validar ID
+	if idHex == "" {
+		return nil, errors.New("ID de ruta es obligatorio")
+	}
+	id, err := primitive.ObjectIDFromHex(idHex)
+	if err != nil {
+		return nil, errors.New("ID de ruta inválido")
+	}
+
+	// Preparar entidad con solo los campos a actualizar
+	r := &domain.Route{ID: id}
+	if nombre != "" {
+		r.Nombre = nombre
+	}
+	if descripcion != "" {
+		r.Descripcion = descripcion
+	}
+	if modoTransporte != "" {
+		r.ModoTransporte = modoTransporte
+	}
+	if origen != nil {
+		r.Origen = *origen
+	}
+	if destino != nil {
+		r.Destino = *destino
+	}
+	if len(waypoints) > 0 {
+		r.Waypoints = waypoints
+	}
+
+	// Llamar a la función de dominio para actualizar
+	updated, err := domain.EditarRoute(context.TODO(), s.DB, r)
+	if err != nil {
+		return nil, err
+	}
+
+	return updated, nil
+}

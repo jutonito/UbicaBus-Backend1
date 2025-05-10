@@ -62,7 +62,6 @@ func EditarRoute(ctx context.Context, db *mongo.Database, r *Route) (*Route, err
 	if r.ModoTransporte != "" {
 		updateFields["modo_transporte"] = r.ModoTransporte
 	}
-	// Para campos complejos (origen, destino, waypoints), verificamos si no están vacíos:
 	if r.Origen != (Location{}) {
 		updateFields["origen"] = r.Origen
 	}
@@ -73,7 +72,6 @@ func EditarRoute(ctx context.Context, db *mongo.Database, r *Route) (*Route, err
 		updateFields["waypoints"] = r.Waypoints
 	}
 
-	// Si no hay campos para actualizar, devolvemos el documento tal cual está
 	if len(updateFields) == 0 {
 		var existing Route
 		if err := collection.FindOne(ctx, bson.M{"_id": r.ID}).Decode(&existing); err != nil {
@@ -98,4 +96,32 @@ func EditarRoute(ctx context.Context, db *mongo.Database, r *Route) (*Route, err
 	}
 
 	return &updated, nil
+}
+
+// GetAllRoutes retorna todas las rutas almacenadas en la colección "ruta".
+func GetAllRoutes(ctx context.Context, db *mongo.Database) ([]Route, error) {
+	collection := db.Collection("ruta")
+
+	cursor, err := collection.Find(ctx, bson.M{})
+	if err != nil {
+		log.Println("Error al obtener rutas:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	routes := make([]Route, 0)
+	for cursor.Next(ctx) {
+		var r Route
+		if err := cursor.Decode(&r); err != nil {
+			log.Println("Error al decodificar ruta:", err)
+			continue
+		}
+		routes = append(routes, r)
+	}
+	if err := cursor.Err(); err != nil {
+		log.Println("Cursor error en rutas:", err)
+		return nil, err
+	}
+
+	return routes, nil
 }
