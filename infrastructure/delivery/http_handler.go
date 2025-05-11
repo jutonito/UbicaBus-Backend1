@@ -11,6 +11,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type BusLocationHandler struct {
+	BLService *application.BusLocationService
+}
+
+type CreateBusLocationReq struct {
+	BusID string  `json:"bus_id" binding:"required"`
+	Lat   float64 `json:"lat" binding:"required"`
+	Lng   float64 `json:"lng" binding:"required"`
+}
+
+// NewBusLocationHandler crea nuevo BusLocationHandler
+func NewBusLocationHandler(bls *application.BusLocationService) *BusLocationHandler {
+	return &BusLocationHandler{BLService: bls}
+}
+
 type BusHandler struct {
 	BusService *application.BusService
 }
@@ -479,8 +494,63 @@ func (h *BusHandler) DeleteBusHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Bus %s eliminado", id)})
 }
 
+// GetAllBusLocationsHandler devuelve todas las localizaciones de buses
+func (h *BusLocationHandler) GetAllBusLocationsHandler(c *gin.Context) {
+	locations, err := h.BLService.GetAllBusLocations()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, locations)
+}
+
+// GetBusLocationsByBusIDHandler devuelve localizaciones para un bus específico
+func (h *BusLocationHandler) GetBusLocationsByBusIDHandler(c *gin.Context) {
+	busID := c.Param("bus_id")
+	if busID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bus_id requerido"})
+		return
+	}
+	locations, err := h.BLService.GetBusLocationsByBusID(busID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, locations)
+}
+
+// RegisterBusLocationHandler registra una nueva localización
+func (h *BusLocationHandler) RegisterBusLocationHandler(c *gin.Context) {
+	var req CreateBusLocationReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	id, err := h.BLService.RegisterBusLocation(req.BusID, req.Lat, req.Lng)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"message": "Localización registrada", "id": id.Hex()})
+}
+
+// DeleteBusLocationHandler elimina una localización por su ID
+func (h *BusLocationHandler) DeleteBusLocationHandler(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id requerido"})
+		return
+	}
+	err := h.BLService.DeleteBusLocation(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Localización %s eliminada", id)})
+}
+
 // StartServer inicia el servidor HTTP y registra rutas con Gin
-func StartServer(userService *application.UserService, routeService *application.RouteService, companyService *application.CompanyService, roleService *application.RoleService, busService *application.BusService) {
+func StartServer(userService *application.UserService, routeService *application.RouteService, companyService *application.CompanyService, roleService *application.RoleService, busService *application.BusService, busLocService *application.BusLocationService) {
 	r := gin.Default()
 
 	// Crear el manejador de usuarios
@@ -489,6 +559,7 @@ func StartServer(userService *application.UserService, routeService *application
 	companyHandler := NewCompanyHandler(companyService)
 	roleHandler := NewRoleHandler(roleService)
 	busHandler := NewBusHandler(busService)
+	busLocHandler := NewBusLocationHandler(busLocService)
 
 	// Registrar rutas
 	r.POST("/register", userHandler.RegisterUserHandler)
@@ -515,6 +586,11 @@ func StartServer(userService *application.UserService, routeService *application
 	r.POST("/buses", busHandler.RegisterBusHandler)
 	r.PUT("/buses/:id", busHandler.EditBusHandler)
 	r.DELETE("/buses/:id", busHandler.DeleteBusHandler)
+	r.GET("/buslocations", busLocHandler.GetAllBusLocationsHandler)
+	r.GET("/buslocations/:bus_id", busLocHandler.GetBusLocationsByBusIDHandler)
+	r.POST("/buslocations", busLocHandler.RegisterBusLocationHandler)
+	// Para eliminar por id de la localización, no por bus_id:
+	r.DELETE("/buslocations/:id", busLocHandler.DeleteBusLocationHandler)
 
 	// Iniciar servidor con Gin
 	fmt.Println("Iniciando servidor en el puerto 8080...")
