@@ -32,6 +32,8 @@ func main() {
 
 	busService := application.NewBusService(db)
 
+	busLocation := application.NewBusLocationService(db)
+
 	// Iniciar servidor con los servicios de usuario y rutas
-	delivery.StartServer(userService, routeService, companyService, roleService, busService)
+	delivery.StartServer(userService, routeService, companyService, roleService, busService, busLocation)
 }
