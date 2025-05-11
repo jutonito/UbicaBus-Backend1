@@ -3,12 +3,29 @@ package delivery
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"UbicaBus/UbicaBusBackend/application"
 	"UbicaBus/UbicaBusBackend/domain"
 
 	"github.com/gin-gonic/gin"
 )
+
+type BusHandler struct {
+	BusService *application.BusService
+}
+
+type CreateBusReq struct {
+	Placa       string    `json:"placa" binding:"required"`
+	ConductorID string    `json:"conductor_id" binding:"required"`
+	RutaID      string    `json:"ruta_id" binding:"required"`
+	FechaInicio time.Time `json:"fecha_inicio" binding:"required"`
+	FechaFin    time.Time `json:"fecha_fin" binding:"required"`
+}
+
+func NewBusHandler(bs *application.BusService) *BusHandler {
+	return &BusHandler{BusService: bs}
+}
 
 type RoleHandler struct {
 	RoleService *application.RoleService
@@ -370,8 +387,100 @@ func (h *RoleHandler) DeleteRoleHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Rol %s eliminado", idHex)})
 }
 
+func (h *BusHandler) GetAllBusesHandler(c *gin.Context) {
+	buses, err := h.BusService.GetAllBuses()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, buses)
+}
+
+// GetBusByIDHandler retorna un bus por su ID.
+func (h *BusHandler) GetBusByIDHandler(c *gin.Context) {
+	id := c.Param("id")
+	bus, err := h.BusService.GetBusByID(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, bus)
+}
+
+// SearchBusesByPlacaHandler busca buses por placa (?placa=...).
+func (h *BusHandler) SearchBusesByPlacaHandler(c *gin.Context) {
+	placa := c.Query("placa")
+	if placa == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'placa' is required"})
+		return
+	}
+	buses, err := h.BusService.SearchBusesByPlaca(placa)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, buses)
+}
+
+// RegisterBusHandler crea un nuevo bus.
+func (h *BusHandler) RegisterBusHandler(c *gin.Context) {
+	var req CreateBusReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	id, err := h.BusService.RegisterBus(
+		req.Placa,
+		req.ConductorID,
+		req.RutaID,
+		req.FechaInicio,
+		req.FechaFin,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Bus creado correctamente",
+		"bus_id":  id.Hex(),
+	})
+}
+
+// EditBusHandler actualiza un bus existente.
+func (h *BusHandler) EditBusHandler(c *gin.Context) {
+	id := c.Param("id")
+	var req CreateBusReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	updated, err := h.BusService.EditBus(
+		id,
+		req.Placa,
+		req.ConductorID,
+		req.RutaID,
+		&req.FechaInicio,
+		&req.FechaFin,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, updated)
+}
+
+// DeleteBusHandler elimina un bus por su ID.
+func (h *BusHandler) DeleteBusHandler(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.BusService.DeleteBus(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Bus %s eliminado", id)})
+}
+
 // StartServer inicia el servidor HTTP y registra rutas con Gin
-func StartServer(userService *application.UserService, routeService *application.RouteService, companyService *application.CompanyService, roleService *application.RoleService) {
+func StartServer(userService *application.UserService, routeService *application.RouteService, companyService *application.CompanyService, roleService *application.RoleService, busService *application.BusService) {
 	r := gin.Default()
 
 	// Crear el manejador de usuarios
@@ -379,6 +488,7 @@ func StartServer(userService *application.UserService, routeService *application
 	routeHandler := NewRouteHandler(routeService)
 	companyHandler := NewCompanyHandler(companyService)
 	roleHandler := NewRoleHandler(roleService)
+	busHandler := NewBusHandler(busService)
 
 	// Registrar rutas
 	r.POST("/register", userHandler.RegisterUserHandler)
@@ -399,6 +509,12 @@ func StartServer(userService *application.UserService, routeService *application
 	r.POST("/roles", roleHandler.RegisterRoleHandler)
 	r.PUT("/roles/:id", roleHandler.EditRoleHandler)
 	r.DELETE("/roles/:id", roleHandler.DeleteRoleHandler)
+	r.GET("/buses", busHandler.GetAllBusesHandler)
+	r.GET("/buses/search", busHandler.SearchBusesByPlacaHandler) // ?placa=...
+	r.GET("/buses/:id", busHandler.GetBusByIDHandler)
+	r.POST("/buses", busHandler.RegisterBusHandler)
+	r.PUT("/buses/:id", busHandler.EditBusHandler)
+	r.DELETE("/buses/:id", busHandler.DeleteBusHandler)
 
 	// Iniciar servidor con Gin
 	fmt.Println("Iniciando servidor en el puerto 8080...")

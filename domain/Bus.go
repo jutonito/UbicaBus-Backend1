@@ -82,3 +82,75 @@ func EditarBus(ctx context.Context, db *mongo.Database, bus *Bus) (*Bus, error) 
 
 	return &updated, nil
 }
+
+func GetAllBuses(ctx context.Context, db *mongo.Database) ([]Bus, error) {
+	coll := db.Collection("buses")
+	cursor, err := coll.Find(ctx, bson.M{})
+	if err != nil {
+		log.Println("Error al obtener buses:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var out []Bus
+	for cursor.Next(ctx) {
+		var b Bus
+		if err := cursor.Decode(&b); err != nil {
+			log.Println("Error al decodificar bus:", err)
+			continue
+		}
+		out = append(out, b)
+	}
+	if err := cursor.Err(); err != nil {
+		log.Println("Cursor error en buses:", err)
+		return nil, err
+	}
+	return out, nil
+}
+
+// GetBusByID busca un bus por su ObjectID.
+func GetBusByID(ctx context.Context, db *mongo.Database, id primitive.ObjectID) (*Bus, error) {
+	coll := db.Collection("buses")
+	var b Bus
+	if err := coll.FindOne(ctx, bson.M{"_id": id}).Decode(&b); err != nil {
+		log.Println("Bus no encontrado:", err)
+		return nil, err
+	}
+	return &b, nil
+}
+
+// GetBusesByPlaca retorna todos los buses cuya placa coincide exactamente.
+func GetBusesByPlaca(ctx context.Context, db *mongo.Database, placa string) ([]Bus, error) {
+	coll := db.Collection("buses")
+	cursor, err := coll.Find(ctx, bson.M{"placa": placa})
+	if err != nil {
+		log.Println("Error al buscar buses por placa:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var out []Bus
+	for cursor.Next(ctx) {
+		var b Bus
+		if err := cursor.Decode(&b); err != nil {
+			log.Println("Error al decodificar bus:", err)
+			continue
+		}
+		out = append(out, b)
+	}
+	if err := cursor.Err(); err != nil {
+		log.Println("Cursor error en búsqueda de buses:", err)
+		return nil, err
+	}
+	return out, nil
+}
+
+// DeleteBus elimina un bus por su ObjectID.
+func DeleteBus(ctx context.Context, db *mongo.Database, id primitive.ObjectID) error {
+	coll := db.Collection("buses")
+	if _, err := coll.DeleteOne(ctx, bson.M{"_id": id}); err != nil {
+		log.Println("Error al eliminar bus:", err)
+		return err
+	}
+	return nil
+}

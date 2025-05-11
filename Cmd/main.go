@@ -30,6 +30,8 @@ func main() {
 
 	roleService := application.NewRoleService(db)
 
+	busService := application.NewBusService(db)
+
 	// Iniciar servidor con los servicios de usuario y rutas
-	delivery.StartServer(userService, routeService, companyService, roleService)
+	delivery.StartServer(userService, routeService, companyService, roleService, busService)
 }
