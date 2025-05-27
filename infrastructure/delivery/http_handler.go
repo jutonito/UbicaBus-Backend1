@@ -8,6 +8,7 @@ import (
 	"UbicaBus/UbicaBusBackend/application"
 	"UbicaBus/UbicaBusBackend/domain"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -552,6 +553,15 @@ func (h *BusLocationHandler) DeleteBusLocationHandler(c *gin.Context) {
 // StartServer inicia el servidor HTTP y registra rutas con Gin
 func StartServer(userService *application.UserService, routeService *application.RouteService, companyService *application.CompanyService, roleService *application.RoleService, busService *application.BusService, busLocService *application.BusLocationService) {
 	r := gin.Default()
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"}, // Cambia según tu frontend
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// Crear el manejador de usuarios
 	userHandler := NewUserHandler(userService)
